@@ -24,10 +24,14 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 #include <stdio.h>
-#include <keypresenter/keypresenter.h>
 
-static void on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer user_data);
-static gboolean on_draw(GtkWidget *window, GdkEventExpose *event, gpointer userdata);
+#include <keypresenter/keypresenter.h>
+#include "appstate.h"
+
+#define WINDOW_LEAVE_EVENT_BOUNDS_MARGIN 5
+
+static void on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer app_state);
+static gboolean on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state);
 static void on_clicked(GtkButton *button, gpointer window);
 static gboolean on_enter(GtkWidget *window, GdkEventCrossing *event);
 static gboolean on_leave(GtkWidget *window, GdkEventCrossing *event);
@@ -37,25 +41,22 @@ static gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypother
                        "This is free software, and you are welcome to redistribute it under\n"
                        "certain conditions which are described in the GNU GPL v3 license.\n\n";
 
-static gboolean screen_supports_alpha = FALSE;
-
 gint
 main(gint argc, gchar **argv) {
+    AppState app_state;
+
     printf("%s\n", NOTICE);
     gtk_init(&argc, &argv);
 
     GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_default_size(GTK_WINDOW(window), 400, 400);
-    gtk_window_set_title(GTK_WINDOW(window), "Alpha Demo");
+    gtk_window_set_title(GTK_WINDOW(window), KEYPRESENTER_APP_NAME);
     g_signal_connect(G_OBJECT(window), "delete-event", gtk_main_quit, NULL);
-
-    KpKey key;
-
 
     gtk_widget_set_app_paintable(window, TRUE);
 
-    g_signal_connect(G_OBJECT(window), "draw", G_CALLBACK(on_draw), NULL);
+    g_signal_connect(G_OBJECT(window), "draw", G_CALLBACK(on_draw), &app_state);
     g_signal_connect(G_OBJECT(window), "screen-changed", G_CALLBACK(on_screen_changed), NULL);
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
@@ -72,7 +73,7 @@ main(gint argc, gchar **argv) {
 
     g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(on_clicked), window);
 
-    on_screen_changed(window, NULL, NULL);
+    on_screen_changed(window, NULL, &app_state);
 
     gtk_widget_show_all(window);
     gtk_main();
@@ -81,27 +82,25 @@ main(gint argc, gchar **argv) {
 }
 
 static void
-on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer user_data) {
+on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer app_state) {
     GdkScreen *screen = gtk_widget_get_screen(window);
     GdkVisual *visual = gdk_screen_get_rgba_visual(screen);
 
     if (!visual) {
-        printf("Your screen does not support alpha channels!\n");
         visual = gdk_screen_get_system_visual(screen);
-        screen_supports_alpha = FALSE;
+        APP_STATE(app_state)->screen_supports_alpha_channel = FALSE;
     } else {
-        printf("Your screen supports alpha channels!\n");
-        screen_supports_alpha = TRUE;
+        APP_STATE(app_state)->screen_supports_alpha_channel = TRUE;
     }
 
     gtk_widget_set_visual(window, visual);
 }
 
 static gboolean
-on_draw(GtkWidget *window, GdkEventExpose *event, gpointer userdata) {
+on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state) {
     cairo_t *cr = gdk_cairo_create(gtk_widget_get_window(window));
 
-    if (screen_supports_alpha) {
+    if (APP_STATE(app_state)->screen_supports_alpha_channel) {
         cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.0);
     } else {
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
@@ -118,8 +117,6 @@ on_draw(GtkWidget *window, GdkEventExpose *event, gpointer userdata) {
 static void
 on_clicked(GtkButton *button, gpointer window) {
     GtkWindow *_window = GTK_WINDOW(window);
-
-    gtk_window_set_decorated(_window, !gtk_window_get_decorated(_window));
 }
 
 static gboolean
@@ -127,7 +124,6 @@ on_enter(GtkWidget *window, GdkEventCrossing *event) {
     gtk_window_set_decorated(GTK_WINDOW(window), TRUE);
     return FALSE;
 }
-
 
 static gboolean
 on_leave(GtkWidget *window, GdkEventCrossing *event) {
@@ -137,8 +133,22 @@ on_leave(GtkWidget *window, GdkEventCrossing *event) {
         return TRUE;
     }
 
-    // If mouse pointer is
+    // If mouse pointer has left to another widget within this window, it will sometimes trigger this leave event.
+    // To counter these incorrect leave events, check if the mouse pointer is still in the window's bounds.
+    gint window_width, window_height;
+    gtk_window_get_size(GTK_WINDOW(window), &window_width, &window_height);
+
+    if (event->x > WINDOW_LEAVE_EVENT_BOUNDS_MARGIN
+        && event->x < window_width - WINDOW_LEAVE_EVENT_BOUNDS_MARGIN
+        && event->y < window_height - WINDOW_LEAVE_EVENT_BOUNDS_MARGIN) {
+
+        return TRUE;
+    }
+
+    fprintf(stderr, "Leaving window at %0.0f, %0.0f - window size is %d, %d\n", event->x, event->y, window_width, window_height);
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     return FALSE;
 }
+
+#undef WINDOW_LEAVE_EVENT_BOUNDS_MARGIN

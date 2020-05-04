@@ -28,4 +28,6 @@
 #include "poll.h"
 #include "pollresult.h"
 
+#define KEYPRESENTER_APP_NAME "Key Presenter"
+
 #endif //KEYPRESENTER_KEYPRESENTER_H

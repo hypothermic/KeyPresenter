@@ -34,6 +34,7 @@ endif()
 
 
 add_executable(keypresenter
+                    appstate.h
                     main.c
                    ../include/keypresenter/keypresenter.h)
 
