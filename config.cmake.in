@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+set(AirVid_VERSION_MAJOR "@PROJECT_VERSION_MAJOR@")
+set(AirVid_VERSION_MINOR "@PROJECT_VERSION_MINOR@")
+set(AirVid_VERSION_PATCH "@PROJECT_VERSION_PATCH@")
+
+set_and_check(airvid-core_INCLUDE_DIR "@PACKAGE_CMAKE_INSTALL_INCLUDEDIR@")
+
+include("${CMAKE_CURRENT_LIST_DIR}/coreTargets.cmake")
+set(airvid-core_LIBRARY AirVid::Core)
