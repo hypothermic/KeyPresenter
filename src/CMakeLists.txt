@@ -33,7 +33,9 @@ elseif(UNIX)
 endif()
 
 
-add_executable(keypresenter main.c)
+add_executable(keypresenter
+                    main.c
+                   ../include/keypresenter/keypresenter.h)
 
 target_include_directories(keypresenter PRIVATE ${KEYPRESENTER_INCLUDES})
 target_link_libraries(keypresenter ${KEYPRESENTER_DEPENDENCIES})

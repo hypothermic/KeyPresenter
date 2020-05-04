@@ -16,16 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file keypresenter.h
- * @brief Public header file for KeyPresenter library
+ * @file keyboard.h
+ * @brief Definition of abstract high-level keyboard-related methods
  */
 
-#ifndef KEYPRESENTER_KEYPRESENTER_H
-#define KEYPRESENTER_KEYPRESENTER_H
+#ifndef KEYPRESENTER_KEYBOARD_H
+#define KEYPRESENTER_KEYBOARD_H
+
+#include <glib.h>
 
 #include "key.h"
-#include "keyboard.h"
-#include "poll.h"
-#include "pollresult.h"
 
-#endif //KEYPRESENTER_KEYPRESENTER_H
+
+
+
+#endif //KEYPRESENTER_KEYBOARD_H

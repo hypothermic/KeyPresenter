@@ -16,16 +16,20 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file keypresenter.h
- * @brief Public header file for KeyPresenter library
+ * @file key.h
+ * @brief Definition of the high-level abstract KpKey structure
  */
 
-#ifndef KEYPRESENTER_KEYPRESENTER_H
-#define KEYPRESENTER_KEYPRESENTER_H
+#ifndef KEYPRESENTER_KEY_H
+#define KEYPRESENTER_KEY_H
 
-#include "key.h"
-#include "keyboard.h"
-#include "poll.h"
-#include "pollresult.h"
+#include <glib.h>
 
-#endif //KEYPRESENTER_KEYPRESENTER_H
+typedef struct _Key KpKey;
+
+struct _Key {
+    guint16 code;
+    gchar label;
+};
+
+#endif //KEYPRESENTER_KEY_H

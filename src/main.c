@@ -15,16 +15,16 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/**
+ * @file main.c
+ * @brief Application entry-point
+ */
 
 #include <cairo.h>
 #include <gtk/gtk.h>
-#include <gdk/gdkscreen.h>
+#include <gdk/gdk.h>
 #include <stdio.h>
-
-static char *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypothermic.nl\n"
-                      "This program comes with ABSOLUTELY NO WARRANTY.\n"
-                      "This is free software, and you are welcome to redistribute it under\n"
-                      "certain conditions which are described in the GNU GPL v3 license.\n\n";
+#include <keypresenter/keypresenter.h>
 
 static void on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer user_data);
 static gboolean on_draw(GtkWidget *window, GdkEventExpose *event, gpointer userdata);
@@ -32,10 +32,25 @@ static void on_clicked(GtkButton *button, gpointer window);
 static gboolean on_enter(GtkWidget *window, GdkEventCrossing *event);
 static gboolean on_leave(GtkWidget *window, GdkEventCrossing *event);
 
+static gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypothermic.nl\n"
+                       "This program comes with ABSOLUTELY NO WARRANTY.\n"
+                       "This is free software, and you are welcome to redistribute it under\n"
+                       "certain conditions which are described in the GNU GPL v3 license.\n\n";
+
 static gboolean screen_supports_alpha = FALSE;
 
-int
-main(int argc, char **argv) {
+static gboolean
+my_keypress_function(GtkWidget *widget, GdkEventKey *event, gpointer data) {
+    fprintf(stderr, "PRESS");
+    if (event->keyval == GDK_KEY_space){
+        fprintf(stderr,  "SPACE KEY PRESSED!");
+        return TRUE;
+    }
+    return FALSE;
+}
+
+gint
+main(gint argc, gchar **argv) {
     printf("%s\n", NOTICE);
     gtk_init(&argc, &argv);
 
@@ -45,6 +60,9 @@ main(int argc, char **argv) {
     gtk_window_set_title(GTK_WINDOW(window), "Alpha Demo");
     g_signal_connect(G_OBJECT(window), "delete-event", gtk_main_quit, NULL);
 
+    KpKey key;
+
+
     gtk_widget_set_app_paintable(window, TRUE);
 
     g_signal_connect(G_OBJECT(window), "draw", G_CALLBACK(on_draw), NULL);
@@ -52,6 +70,9 @@ main(int argc, char **argv) {
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK);
+
+    gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
+    g_signal_connect(G_OBJECT(window), "key_press_event", G_CALLBACK(my_keypress_function), NULL);
 
     g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), NULL);
     g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), NULL);
@@ -69,7 +90,7 @@ main(int argc, char **argv) {
     gtk_widget_show_all(window);
     gtk_main();
 
-    return 0;
+    return EXIT_SUCCESS;
 }
 
 static void
@@ -123,6 +144,14 @@ on_enter(GtkWidget *window, GdkEventCrossing *event) {
 
 static gboolean
 on_leave(GtkWidget *window, GdkEventCrossing *event) {
+    // If mouse pointer is moving to the top side of the window (titlebar),
+    // no action is taken and the event is propagated further.
+    if (event->y <= 1) {
+        return TRUE;
+    }
+
+    // If mouse pointer is
+
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     return FALSE;
 }

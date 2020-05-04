@@ -16,16 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file keypresenter.h
- * @brief Public header file for KeyPresenter library
+ * @file poll.h
+ * @brief Definition of the high-level abstract KpKeyboardPoll structure
  */
 
-#ifndef KEYPRESENTER_KEYPRESENTER_H
-#define KEYPRESENTER_KEYPRESENTER_H
+#ifndef KEYPRESENTER_POLL_H
+#define KEYPRESENTER_POLL_H
+
+#include <glib.h>
 
 #include "key.h"
-#include "keyboard.h"
-#include "poll.h"
 #include "pollresult.h"
 
-#endif //KEYPRESENTER_KEYPRESENTER_H
+typedef struct _KeyboardPoll KpKeyboardPoll;
+
+struct _KeyboardPoll {
+    KpKeyboardPollResult result;
+    guint16 keycode;
+};
+
+#endif //KEYPRESENTER_POLL_H

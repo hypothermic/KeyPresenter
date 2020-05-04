@@ -16,16 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file keypresenter.h
- * @brief Public header file for KeyPresenter library
+ * @file poll.h
+ * @brief Definition of the high-level abstract KpKeyboardPollResult enum
  */
 
-#ifndef KEYPRESENTER_KEYPRESENTER_H
-#define KEYPRESENTER_KEYPRESENTER_H
+#ifndef KEYPRESENTER_POLLRESULT_H
+#define KEYPRESENTER_POLLRESULT_H
 
-#include "key.h"
-#include "keyboard.h"
-#include "poll.h"
-#include "pollresult.h"
+typedef enum _KeyboardPollResult KpKeyboardPollResult;
 
-#endif //KEYPRESENTER_KEYPRESENTER_H
+enum _KeyboardPollResult {
+    POLL_EMPTY = 0,
+    POLL_OK    = 1,
+    POLL_ERROR = 2,
+};
+
+#endif //KEYPRESENTER_POLLRESULT_H
