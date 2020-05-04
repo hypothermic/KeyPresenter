@@ -39,16 +39,6 @@ static gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypother
 
 static gboolean screen_supports_alpha = FALSE;
 
-static gboolean
-my_keypress_function(GtkWidget *widget, GdkEventKey *event, gpointer data) {
-    fprintf(stderr, "PRESS");
-    if (event->keyval == GDK_KEY_space){
-        fprintf(stderr,  "SPACE KEY PRESSED!");
-        return TRUE;
-    }
-    return FALSE;
-}
-
 gint
 main(gint argc, gchar **argv) {
     printf("%s\n", NOTICE);
@@ -70,9 +60,6 @@ main(gint argc, gchar **argv) {
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK);
-
-    gtk_widget_add_events(window, GDK_KEY_PRESS_MASK);
-    g_signal_connect(G_OBJECT(window), "key_press_event", G_CALLBACK(my_keypress_function), NULL);
 
     g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), NULL);
     g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), NULL);
