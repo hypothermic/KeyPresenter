@@ -30,7 +30,7 @@
 typedef struct _PollTaskResult KpPollTaskResult;
 
 struct _PollTaskResult {
-    GtkWidget *window;
+    GHashTable *key_button_table;
     KpKeyboardPoll poll;
     gpointer keyboard_data;
 };

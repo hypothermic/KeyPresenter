@@ -9,6 +9,7 @@ typedef struct _AppState AppState;
 
 struct _AppState {
     gboolean screen_supports_alpha_channel;
+    gboolean is_transparent;
 };
 
 #endif //KEYPRESENTER_APPSTATE_H

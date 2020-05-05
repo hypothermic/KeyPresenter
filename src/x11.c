@@ -30,6 +30,15 @@
 #include "polltaskresult.h"
 #include "x11.h"
 
+#ifndef DEFAULT_KEY_ANIMATION_TIMEOUT
+#define DEFAULT_KEY_ANIMATION_TIMEOUT 400
+#endif
+
+static const gchar DEFAULT_LATIN_ALLOWED_CHARACTERS[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
+                                                         'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+                                                         'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+                                                         'u', 'v', 'w', 'x', 'y', 'z'};
+
 gpointer
 kp_keyboard_init(GtkWindow *UNUSED(window)) {
     KpX11KeyboardData *data = g_new0(KpX11KeyboardData, 1);
@@ -90,9 +99,6 @@ kp_keyboard_get_keys(GtkWindow *UNUSED(window), gpointer internal_keyboard_data)
     GHashTable *hash_table = g_hash_table_new(g_int64_hash, g_int64_equal);
     KpX11KeyboardData *data = X11_KEYBOARD_DATA(internal_keyboard_data);
 
-#define AUTO_LOOKUP_AVAILABLE_KEYS
-
-#ifdef AUTO_LOOKUP_AVAILABLE_KEYS
     for (int i = 0; i < data->displays->len; ++i) {
         Display *display = g_array_index(data->displays, Display*, i);
 
@@ -103,40 +109,31 @@ kp_keyboard_get_keys(GtkWindow *UNUSED(window), gpointer internal_keyboard_data)
             keysyms_per_keycode_return;
         KeySym *keysyms = XGetKeyboardMapping(display, min_keycodes_return, keycode_count, &keysyms_per_keycode_return);
 
-        int skip = 0;
         for (int j = 0; j < (keycode_count * keysyms_per_keycode_return); ++j) {
-            if (skip > 0) {
-                skip--;
-            }
-            skip = keysyms_per_keycode_return;
-
             KeySym keysym = keysyms[j];
+            KeyCode keycode = XKeysymToKeycode(display, keysym);
             gchar *key_str = XKeysymToString(keysym);
 
             if (NULL == key_str) continue;
+            if (!XkbIsLegalKeycode(keycode)) continue;
 
-            if (g_hash_table_contains(hash_table, key_str)) continue;
-            g_hash_table_add(hash_table, key_str);
+            if (g_hash_table_contains(hash_table, &keycode)) continue;
+            g_hash_table_add(hash_table, &keycode);
 
-            KpKey *key = g_new0(KpKey, 1);
-            key->label = key_str;
-            key->code = keysym;
+            for (int k = 0; k < strlen(DEFAULT_LATIN_ALLOWED_CHARACTERS); k++) {
+                gchar key_label = DEFAULT_LATIN_ALLOWED_CHARACTERS[k];
 
-            g_array_append_val(result, key);
+                if (key_label == key_str[0] && key_str[1] == '\0') {
+                    KpKey *key = g_new0(KpKey, 1);
+                    key->label = key_str;
+                    key->code = keycode;
+
+                    g_array_append_val(result, key);
+                    break;
+                }
+            }
         }
     }
-#else
-    KpKey *key_a = g_new0(KpKey, 1);
-    key_a->label = "a";
-    key_a->code = 1;
-
-    KpKey *key_b = g_new0(KpKey, 1);
-    key_b->label = "b";
-    key_b->code = 1;
-
-    g_array_append_val(result, key_a);
-    g_array_append_val(result, key_b);
-#endif
 
     g_hash_table_destroy(hash_table);
 
@@ -144,10 +141,26 @@ kp_keyboard_get_keys(GtkWindow *UNUSED(window), gpointer internal_keyboard_data)
 }
 
 static gboolean
+on_toggle_button_idle_reset(gpointer button) {
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), FALSE);
+
+    return G_SOURCE_REMOVE;
+}
+
+static gboolean
 on_poll_task_result(gpointer poll_task_result) {
     KpPollTaskResult *result = poll_task_result;
 
-    fprintf(stderr, "Pressed key %s (%d) with state %s. TODO feed this into the GUI\n", result->poll.key.label, result->poll.key.code, result->poll.pressed ? "PRESSED" : "RELEASED");
+    fprintf(stderr, "%s key %s (%d).\n", result->poll.pressed ? "Pressed" : "Released", result->poll.key.label, result->poll.key.code);
+
+    if (result->poll.pressed) {
+        GtkWidget *button = g_hash_table_lookup(result->key_button_table, &result->poll.key.code);
+
+        if (GTK_IS_TOGGLE_BUTTON(button)) {
+            gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), TRUE);
+            g_timeout_add(DEFAULT_KEY_ANIMATION_TIMEOUT, on_toggle_button_idle_reset, button);
+        }
+    }
 
     return G_SOURCE_REMOVE;
 }
@@ -159,9 +172,7 @@ kp_keyboard_poll_task(GTask *task, gpointer UNUSED(source_obj), gpointer poll_ta
 
     while ("forever") {
         if (g_cancellable_is_cancelled (cancellable)) {
-            g_task_return_new_error(task,
-                                    G_IO_ERROR, G_IO_ERROR_CANCELLED,
-                                    "Task cancelled");
+            g_task_return_new_error(task, G_IO_ERROR, G_IO_ERROR_CANCELLED, "Task cancelled");
             return;
         }
 
@@ -186,7 +197,7 @@ kp_keyboard_poll_task(GTask *task, gpointer UNUSED(source_obj), gpointer poll_ta
                         gchar *key_str = XKeysymToString(keysym);
                         if (NULL == key_str) continue;
 
-                        result->poll.key.code = keysym;
+                        result->poll.key.code = ev->detail;
                         result->poll.key.label = key_str;
                         result->poll.pressed = cookie->evtype == XI_RawKeyPress ? TRUE : FALSE;
 

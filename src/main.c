@@ -37,28 +37,29 @@
 
 static void on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer app_state);
 static gboolean on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state);
-static void on_clicked(GtkButton *button, gpointer window);
-static gboolean on_enter(GtkWidget *window, GdkEventCrossing *event);
-static gboolean on_leave(GtkWidget *window, GdkEventCrossing *event);
+static gboolean on_enter(GtkWidget *window, GdkEventCrossing *event, gpointer app_state_p);
+static gboolean on_leave(GtkWidget *window, GdkEventCrossing *event, gpointer app_state_p);
 
-static gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypothermic.nl\n"
-                       "This program comes with ABSOLUTELY NO WARRANTY.\n"
-                       "This is free software, and you are welcome to redistribute it under\n"
-                       "certain conditions which are described in the GNU GPL v3 license.\n\n";
+static const gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypothermic.nl\n"
+                             "This program comes with ABSOLUTELY NO WARRANTY.\n"
+                             "This is free software, and you are welcome to redistribute it under\n"
+                             "certain conditions which are described in the GNU GPL v3 license.\n\n";
 
 gint
 main(gint argc, gchar **argv) {
-    AppState app_state;
-    GtkWidget *window, *flowbox;
+    GtkWidget *window, *grid;
     gpointer keyboard_data;
     GArray *keyboard_keys;
+    GHashTable *key_button_table;
+    AppState app_state = {FALSE, TRUE};
+    GdkRGBA color = {1.0, 1.0, 1.0, 1.0};
 
     printf("%s\n", NOTICE);
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-    gtk_window_set_default_size(GTK_WINDOW(window), 400, 400);
+    gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
     gtk_window_set_title(GTK_WINDOW(window), KEYPRESENTER_APP_NAME);
     gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     g_signal_connect(G_OBJECT(window), "delete-event", gtk_main_quit, NULL);
@@ -71,29 +72,55 @@ main(gint argc, gchar **argv) {
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     gtk_widget_add_events(window, GDK_BUTTON_PRESS_MASK);
 
-    g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), NULL);
-    g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), NULL);
+    g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), &app_state);
+    g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), &app_state);
 
-    flowbox = gtk_flow_box_new();
-    gtk_container_add(GTK_CONTAINER(window), flowbox);
+
+    grid = gtk_grid_new();
+    gtk_container_add(GTK_CONTAINER(window), grid);
 
     keyboard_data = kp_keyboard_init(GTK_WINDOW(window));
     keyboard_keys = kp_keyboard_get_keys(GTK_WINDOW(window), keyboard_data);
+
+    key_button_table = g_hash_table_new(g_int64_hash, g_int64_equal);
+
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 3);
+
+#ifdef AUTO_LOOKUP_AVAILABLE_KEYS
+    uint row_width = keyboard_keys->len / 15;
+#endif
+    uint current_x = 0, current_y = 0;
 
     for (int i = 0; i < keyboard_keys->len; ++i) {
         KpKey* key = g_array_index(keyboard_keys, KpKey*, i);
         fprintf(stderr, "Found key %s with code %d\n", key->label, key->code);
 
         // TODO add these to a GHashTable to find them later.
-        GtkWidget *button = gtk_button_new_with_label(key->label);
-        gtk_widget_set_size_request(button, 100, 100);
-        gtk_container_add(GTK_CONTAINER(flowbox), button);
+        GtkWidget *button = gtk_toggle_button_new_with_label(key->label);
+        gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_HALF);
+        gtk_widget_set_size_request(button, 80, 50);
+        gtk_grid_attach(GTK_GRID(grid), button, current_x, current_y, 1, 1);
+
+        g_hash_table_insert(key_button_table, &key->code, button);
+
+#ifdef AUTO_LOOKUP_AVAILABLE_KEYS
+        if (++current_x > row_width) {
+#else
+        current_x++;
+        if (g_strcmp0(key->label, "0") == 0
+            || g_strcmp0(key->label, "p") == 0
+            || g_strcmp0(key->label, "l") == 0) {
+#endif
+            current_y++;
+            current_x = 0;
+        }
     }
 
 
     KpPollTaskResult *task_result = g_new0(KpPollTaskResult, 1);
-    task_result->window = window;
     task_result->keyboard_data = keyboard_data;
+    task_result->key_button_table = key_button_table;
 
     GCancellable *cancellable = g_cancellable_new();
     GTask *task = g_task_new(window, cancellable, NULL, task_result);
@@ -127,11 +154,12 @@ on_screen_changed(GtkWidget *window, GdkScreen *old_screen, gpointer app_state) 
 }
 
 static gboolean
-on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state) {
+on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state_p) {
     cairo_t *cr = gdk_cairo_create(gtk_widget_get_window(window));
+    AppState *app_state = APP_STATE(app_state_p);
 
-    if (APP_STATE(app_state)->screen_supports_alpha_channel) {
-        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, 0.0);
+    if (app_state->screen_supports_alpha_channel) {
+        cairo_set_source_rgba(cr, 1.0, 1.0, 1.0, app_state->is_transparent ? 0.0 : 0.4);
     } else {
         cairo_set_source_rgb(cr, 1.0, 1.0, 1.0);
     }
@@ -145,13 +173,15 @@ on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state) {
 }
 
 static gboolean
-on_enter(GtkWidget *window, GdkEventCrossing *event) {
+on_enter(GtkWidget *window, GdkEventCrossing *event, gpointer app_state_p) {
     gtk_window_set_decorated(GTK_WINDOW(window), TRUE);
+    APP_STATE(app_state_p)->is_transparent = FALSE;
+
     return FALSE;
 }
 
 static gboolean
-on_leave(GtkWidget *window, GdkEventCrossing *event) {
+on_leave(GtkWidget *window, GdkEventCrossing *event, gpointer app_state_p) {
     // If mouse pointer is moving to the top side of the window (titlebar),
     // no action is taken and the event is propagated further.
     if (event->y <= 1) {
@@ -173,6 +203,7 @@ on_leave(GtkWidget *window, GdkEventCrossing *event) {
     fprintf(stderr, "Leaving window at %0.0f, %0.0f - window size is %d, %d\n", event->x, event->y, window_width, window_height);
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
+    APP_STATE(app_state_p)->is_transparent = TRUE;
     return FALSE;
 }
 
