@@ -39,6 +39,7 @@ endif()
 
 add_executable(keypresenter
                     appstate.h
+                    macro.h
                     main.c
                     polltaskresult.h
                     ${KEYPRESENTER_KEYBOARD_IMPL}

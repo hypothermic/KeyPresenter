@@ -82,10 +82,10 @@ main(gint argc, gchar **argv) {
 
     for (int i = 0; i < keyboard_keys->len; ++i) {
         KpKey* key = g_array_index(keyboard_keys, KpKey*, i);
-        fprintf(stderr, "Found key %c with code %d\n", key->label, key->code);
+        fprintf(stderr, "Found key %s with code %d\n", key->label, key->code);
 
         // TODO add these to a GHashTable to find them later.
-        GtkWidget *button = gtk_button_new_with_label(&key->label);
+        GtkWidget *button = gtk_button_new_with_label(key->label);
         gtk_widget_set_size_request(button, 100, 100);
         gtk_container_add(GTK_CONTAINER(flowbox), button);
     }
@@ -142,11 +142,6 @@ on_draw(GtkWidget *window, GdkEventExpose *event, gpointer app_state) {
     cairo_destroy(cr);
 
     return FALSE;
-}
-
-static void
-on_clicked(GtkButton *button, gpointer window) {
-    GtkWindow *_window = GTK_WINDOW(window);
 }
 
 static gboolean

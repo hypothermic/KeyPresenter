@@ -29,7 +29,7 @@ typedef struct _Key KpKey;
 
 struct _Key {
     guint16 code;
-    gchar label;
+    gchar *label;
 };
 
 #endif //KEYPRESENTER_KEY_H

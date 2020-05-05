@@ -26,11 +26,12 @@
 #include <X11/extensions/XInput2.h>
 
 #include "keypresenter/key.h"
+#include "macro.h"
 #include "polltaskresult.h"
 #include "x11.h"
 
 gpointer
-kp_keyboard_init(GtkWindow *window) {
+kp_keyboard_init(GtkWindow *UNUSED(window)) {
     KpX11KeyboardData *data = g_new0(KpX11KeyboardData, 1);
     data->displays = g_array_new(TRUE, TRUE, sizeof(Display*));
 
@@ -84,14 +85,60 @@ kp_keyboard_init(GtkWindow *window) {
 }
 
 GArray *
-kp_keyboard_get_keys(GtkWindow *window, gpointer internal_keyboard_data) {
+kp_keyboard_get_keys(GtkWindow *UNUSED(window), gpointer internal_keyboard_data) {
     GArray *result = g_array_new(TRUE, TRUE, sizeof(KpKey*));
+    GHashTable *hash_table = g_hash_table_new(g_int64_hash, g_int64_equal);
+    KpX11KeyboardData *data = X11_KEYBOARD_DATA(internal_keyboard_data);
 
+#define AUTO_LOOKUP_AVAILABLE_KEYS
+
+#ifdef AUTO_LOOKUP_AVAILABLE_KEYS
+    for (int i = 0; i < data->displays->len; ++i) {
+        Display *display = g_array_index(data->displays, Display*, i);
+
+        int min_keycodes_return, max_keycodes_return;
+        XDisplayKeycodes(display, &min_keycodes_return, &max_keycodes_return);
+
+        int keycode_count = max_keycodes_return - min_keycodes_return - 1,
+            keysyms_per_keycode_return;
+        KeySym *keysyms = XGetKeyboardMapping(display, min_keycodes_return, keycode_count, &keysyms_per_keycode_return);
+
+        int skip = 0;
+        for (int j = 0; j < (keycode_count * keysyms_per_keycode_return); ++j) {
+            if (skip > 0) {
+                skip--;
+            }
+            skip = keysyms_per_keycode_return;
+
+            KeySym keysym = keysyms[j];
+            gchar *key_str = XKeysymToString(keysym);
+
+            if (NULL == key_str) continue;
+
+            if (g_hash_table_contains(hash_table, key_str)) continue;
+            g_hash_table_add(hash_table, key_str);
+
+            KpKey *key = g_new0(KpKey, 1);
+            key->label = key_str;
+            key->code = keysym;
+
+            g_array_append_val(result, key);
+        }
+    }
+#else
     KpKey *key_a = g_new0(KpKey, 1);
-    key_a->label = 'a';
+    key_a->label = "a";
     key_a->code = 1;
 
+    KpKey *key_b = g_new0(KpKey, 1);
+    key_b->label = "b";
+    key_b->code = 1;
+
     g_array_append_val(result, key_a);
+    g_array_append_val(result, key_b);
+#endif
+
+    g_hash_table_destroy(hash_table);
 
     return result;
 }
@@ -100,13 +147,13 @@ static gboolean
 on_poll_task_result(gpointer poll_task_result) {
     KpPollTaskResult *result = poll_task_result;
 
-    fprintf(stderr, "Pressed key %c (%d) with state %s. TODO feed this into the GUI\n", result->poll.key.label, result->poll.key.code, result->poll.pressed ? "PRESSED" : "RELEASED");
+    fprintf(stderr, "Pressed key %s (%d) with state %s. TODO feed this into the GUI\n", result->poll.key.label, result->poll.key.code, result->poll.pressed ? "PRESSED" : "RELEASED");
 
     return G_SOURCE_REMOVE;
 }
 
 void
-kp_keyboard_poll_task(GTask *task, gpointer source_obj, gpointer poll_task_result, GCancellable *cancellable) {
+kp_keyboard_poll_task(GTask *task, gpointer UNUSED(source_obj), gpointer poll_task_result, GCancellable *cancellable) {
     KpPollTaskResult *result = poll_task_result;
     KpX11KeyboardData *keyboard_data = X11_KEYBOARD_DATA(result->keyboard_data);
 
@@ -134,13 +181,13 @@ kp_keyboard_poll_task(GTask *task, gpointer source_obj, gpointer poll_task_resul
                         XIRawEvent *ev = cookie->data;
 
                         // Ask X what it calls that key
-                        KeySym s = XkbKeycodeToKeysym(display, ev->detail, 0, 0);
-                        if (NoSymbol == s) continue;
-                        char *str = XKeysymToString(s);
-                        if (NULL == str) continue;
+                        KeySym keysym = XkbKeycodeToKeysym(display, ev->detail, 0, 0);
+                        if (NoSymbol == keysym) continue;
+                        gchar *key_str = XKeysymToString(keysym);
+                        if (NULL == key_str) continue;
 
-                        result->poll.key.code = s;
-                        result->poll.key.label = *str;
+                        result->poll.key.code = keysym;
+                        result->poll.key.label = key_str;
                         result->poll.pressed = cookie->evtype == XI_RawKeyPress ? TRUE : FALSE;
 
                         g_main_context_invoke(NULL, on_poll_task_result, result);
