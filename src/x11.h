@@ -16,24 +16,27 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file poll.h
- * @brief Definition of the high-level abstract KpKeyboardPoll structure
+ * @file x11.h
+ * @brief Internal data structures for XI2 support
  */
 
-#ifndef KEYPRESENTER_POLL_H
-#define KEYPRESENTER_POLL_H
+#ifndef KEYPRESENTER_X11_H
+#define KEYPRESENTER_X11_H
 
-#include <glib.h>
+#define X11_KEYBOARD_DATA(keyboard_data) (((KpX11KeyboardData*) keyboard_data))
 
-#include "key.h"
-#include "pollresult.h"
+typedef struct _X11KeyboardData KpX11KeyboardData;
 
-typedef struct _KeyboardPoll KpKeyboardPoll;
+struct _X11KeyboardData {
+    /**
+     * LibXi extension opcode
+     */
+    int xi_extension_opcode;
 
-struct _KeyboardPoll {
-    KpKeyboardPollResult result;
-    KpKey key;
-    gboolean pressed;
+    /**
+     * An array with Display element type
+     */
+    GArray *displays;
 };
 
-#endif //KEYPRESENTER_POLL_H
+#endif //KEYPRESENTER_X11_H

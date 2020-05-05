@@ -26,8 +26,28 @@
 #include <glib.h>
 
 #include "key.h"
+#include "poll.h"
 
+/**
+ * Called when the keyboard needs to be initialized.
+ *
+ * @return (Optional) ptr to an internal data structure used by the keyboard implementation
+ */
+gpointer
+kp_keyboard_init(GtkWindow *window);
 
+/**
+ * Retrieve all available keys on the keyboard.
+ *
+ * @return Ptr to a GArray with elements of KpKey pointer
+ */
+GArray *
+kp_keyboard_get_keys(GtkWindow *window, gpointer internal_keyboard_data);
 
+/**
+ * GTask which listens for libXi keyboard presses
+ */
+void
+kp_keyboard_poll_task(GTask *task, gpointer source_obj, gpointer poll_task_result, GCancellable *cancellable);
 
 #endif //KEYPRESENTER_KEYBOARD_H

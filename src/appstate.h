@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-#define APP_STATE(app_state) ((AppState*) app_state)
+#define APP_STATE(app_state) (((AppState*) app_state))
 
 typedef struct _AppState AppState;
 

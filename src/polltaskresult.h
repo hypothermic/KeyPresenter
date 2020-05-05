@@ -16,24 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 /**
- * @file poll.h
- * @brief Definition of the high-level abstract KpKeyboardPoll structure
+ * @file polltaskresult.h
+ * @brief GTask return wrapper object for internal use.
  */
 
-#ifndef KEYPRESENTER_POLL_H
-#define KEYPRESENTER_POLL_H
+#ifndef KEYPRESENTER_POLLTASKRESULT_H
+#define KEYPRESENTER_POLLTASKRESULT_H
 
-#include <glib.h>
+#include <gtk/gtk.h>
 
-#include "key.h"
-#include "pollresult.h"
+#include <keypresenter/poll.h>
 
-typedef struct _KeyboardPoll KpKeyboardPoll;
+typedef struct _PollTaskResult KpPollTaskResult;
 
-struct _KeyboardPoll {
-    KpKeyboardPollResult result;
-    KpKey key;
-    gboolean pressed;
+struct _PollTaskResult {
+    GtkWidget *window;
+    KpKeyboardPoll poll;
+    gpointer keyboard_data;
 };
 
-#endif //KEYPRESENTER_POLL_H
+#endif //KEYPRESENTER_POLLTASKRESULT_H

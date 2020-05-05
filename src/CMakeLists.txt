@@ -20,6 +20,7 @@ if(APPLE)
     find_library(IOKIT_LIBRARY IOKit)
     find_library(COREVIDEO_LIBRARY CoreVideo)
     list(APPEND KEYPRESENTER_DEPENDENCIES ${COCOA_LIBRARY} ${IOKIT_LIBRARY} ${COREVIDEO_LIBRARY})
+    list(APPEND KEYPRESENTER_KEYBOARD_IMPL ${IOKIT_LIBRARY})
 elseif(UNIX)
     find_package(Threads REQUIRED)
     find_library(x11 NAMES X11)
@@ -30,13 +31,18 @@ elseif(UNIX)
     find_library(dl NAMES dl)
     find_library(xinerama NAMES Xinerama)
     list(APPEND KEYPRESENTER_DEPENDENCIES Threads::Threads ${x11} ${xrandr} ${xi} ${xxf86vm} ${dl} ${xcursor} ${xinerama})
+    add_compile_definitions(KEYPRESENTER_BUILD_USE_X11)
+    list(APPEND KEYPRESENTER_KEYBOARD_IMPL x11.c)
+    list(APPEND KEYPRESENTER_KEYBOARD_IMPL x11.h)
 endif()
 
 
 add_executable(keypresenter
                     appstate.h
                     main.c
-                   ../include/keypresenter/keypresenter.h)
+                    polltaskresult.h
+                    ${KEYPRESENTER_KEYBOARD_IMPL}
+                    ../include/keypresenter/keypresenter.h)
 
 target_include_directories(keypresenter PRIVATE ${KEYPRESENTER_INCLUDES})
 target_link_libraries(keypresenter ${KEYPRESENTER_DEPENDENCIES})

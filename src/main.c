@@ -27,6 +27,11 @@
 
 #include <keypresenter/keypresenter.h>
 #include "appstate.h"
+#include "polltaskresult.h"
+
+#ifdef KEYPRESENTER_BUILD_USE_X11
+#include "x11.h"
+#endif
 
 #define WINDOW_LEAVE_EVENT_BOUNDS_MARGIN 5
 
@@ -44,14 +49,18 @@ static gchar *NOTICE = "\nKeypresenter  Copyright (C) 2020  https://www.hypother
 gint
 main(gint argc, gchar **argv) {
     AppState app_state;
+    GtkWidget *window, *flowbox;
+    gpointer keyboard_data;
+    GArray *keyboard_keys;
 
     printf("%s\n", NOTICE);
     gtk_init(&argc, &argv);
 
-    GtkWidget *window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
     gtk_window_set_default_size(GTK_WINDOW(window), 400, 400);
     gtk_window_set_title(GTK_WINDOW(window), KEYPRESENTER_APP_NAME);
+    gtk_window_set_keep_above(GTK_WINDOW(window), TRUE);
     g_signal_connect(G_OBJECT(window), "delete-event", gtk_main_quit, NULL);
 
     gtk_widget_set_app_paintable(window, TRUE);
@@ -65,14 +74,35 @@ main(gint argc, gchar **argv) {
     g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), NULL);
     g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), NULL);
 
-    GtkWidget *fixed_container = gtk_fixed_new();
-    gtk_container_add(GTK_CONTAINER(window), fixed_container);
-    GtkWidget *button = gtk_button_new_with_label("button1");
-    gtk_widget_set_size_request(button, 100, 100);
-    gtk_container_add(GTK_CONTAINER(fixed_container), button);
+    flowbox = gtk_flow_box_new();
+    gtk_container_add(GTK_CONTAINER(window), flowbox);
 
-    g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(on_clicked), window);
+    keyboard_data = kp_keyboard_init(GTK_WINDOW(window));
+    keyboard_keys = kp_keyboard_get_keys(GTK_WINDOW(window), keyboard_data);
 
+    for (int i = 0; i < keyboard_keys->len; ++i) {
+        KpKey* key = g_array_index(keyboard_keys, KpKey*, i);
+        fprintf(stderr, "Found key %c with code %d\n", key->label, key->code);
+
+        // TODO add these to a GHashTable to find them later.
+        GtkWidget *button = gtk_button_new_with_label(&key->label);
+        gtk_widget_set_size_request(button, 100, 100);
+        gtk_container_add(GTK_CONTAINER(flowbox), button);
+    }
+
+
+    KpPollTaskResult *task_result = g_new0(KpPollTaskResult, 1);
+    task_result->window = window;
+    task_result->keyboard_data = keyboard_data;
+
+    GCancellable *cancellable = g_cancellable_new();
+    GTask *task = g_task_new(window, cancellable, NULL, task_result);
+    g_task_set_task_data(task, task_result, g_free);
+    g_task_run_in_thread(task, kp_keyboard_poll_task);
+    g_object_unref(task);
+
+
+    // Trigger initial screen change
     on_screen_changed(window, NULL, &app_state);
 
     gtk_widget_show_all(window);
