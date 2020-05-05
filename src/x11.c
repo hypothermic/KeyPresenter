@@ -31,7 +31,7 @@
 #include "x11.h"
 
 #ifndef DEFAULT_KEY_ANIMATION_TIMEOUT
-#define DEFAULT_KEY_ANIMATION_TIMEOUT 400
+#define DEFAULT_KEY_ANIMATION_TIMEOUT 300
 #endif
 
 static const gchar DEFAULT_LATIN_ALLOWED_CHARACTERS[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
@@ -69,7 +69,9 @@ kp_keyboard_init(GtkWindow *UNUSED(window)) {
             }
             data->xi_extension_opcode = xiOpcode;
 
-            fprintf(stdout, "Found valid display %s", display_name);
+#ifdef NDEBUG
+            fprintf(stderr, "Found valid display %s", display_name);
+#endif
 
             Window root = DefaultRootWindow(display);
             XIEventMask m;
@@ -82,7 +84,9 @@ kp_keyboard_init(GtkWindow *UNUSED(window)) {
             XSync(display, FALSE);
             free(m.mask);
 
+#ifdef NDEBUG
             fprintf(stdout, "Using configured display %s", display_name);
+#endif
 
             g_array_append_val(data->displays, display);
         }
@@ -123,7 +127,8 @@ kp_keyboard_get_keys(GtkWindow *UNUSED(window), gpointer internal_keyboard_data)
             for (int k = 0; k < strlen(DEFAULT_LATIN_ALLOWED_CHARACTERS); k++) {
                 gchar key_label = DEFAULT_LATIN_ALLOWED_CHARACTERS[k];
 
-                if (key_label == key_str[0] && key_str[1] == '\0') {
+                if (key_label == key_str[0] && key_str[1] == '\0'
+                    || g_strcmp0("space", key_str) == 0 ) {
                     KpKey *key = g_new0(KpKey, 1);
                     key->label = key_str;
                     key->code = keycode;
@@ -151,7 +156,9 @@ static gboolean
 on_poll_task_result(gpointer poll_task_result) {
     KpPollTaskResult *result = poll_task_result;
 
+#ifdef NDEBUG
     fprintf(stderr, "%s key %s (%d).\n", result->poll.pressed ? "Pressed" : "Released", result->poll.key.label, result->poll.key.code);
+#endif
 
     if (result->poll.pressed) {
         GtkWidget *button = g_hash_table_lookup(result->key_button_table, &result->poll.key.code);

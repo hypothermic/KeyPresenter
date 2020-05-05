@@ -27,6 +27,7 @@
 
 #include <keypresenter/keypresenter.h>
 #include "appstate.h"
+#include "macro.h"
 #include "polltaskresult.h"
 
 #ifdef KEYPRESENTER_BUILD_USE_X11
@@ -52,9 +53,8 @@ main(gint argc, gchar **argv) {
     GArray *keyboard_keys;
     GHashTable *key_button_table;
     AppState app_state = {FALSE, TRUE};
-    GdkRGBA color = {1.0, 1.0, 1.0, 1.0};
 
-    printf("%s\n", NOTICE);
+    fprintf(stdout, "%s\n", NOTICE);
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
@@ -75,32 +75,43 @@ main(gint argc, gchar **argv) {
     g_signal_connect(G_OBJECT(window), "enter-notify-event", G_CALLBACK(on_enter), &app_state);
     g_signal_connect(G_OBJECT(window), "leave-notify-event", G_CALLBACK(on_leave), &app_state);
 
-
     grid = gtk_grid_new();
     gtk_container_add(GTK_CONTAINER(window), grid);
+
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 3);
+    gtk_widget_set_margin_top(grid, 8);
+    gtk_widget_set_margin_start(grid, 8);
+    gtk_widget_set_margin_bottom(grid, 8);
+    gtk_widget_set_margin_end(grid, 8);
 
     keyboard_data = kp_keyboard_init(GTK_WINDOW(window));
     keyboard_keys = kp_keyboard_get_keys(GTK_WINDOW(window), keyboard_data);
 
     key_button_table = g_hash_table_new(g_int64_hash, g_int64_equal);
 
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 3);
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 3);
-
 #ifdef AUTO_LOOKUP_AVAILABLE_KEYS
     uint row_width = keyboard_keys->len / 15;
 #endif
-    uint current_x = 0, current_y = 0;
+    uint current_x = 0, current_y = 0, n = 0;
 
     for (int i = 0; i < keyboard_keys->len; ++i) {
         KpKey* key = g_array_index(keyboard_keys, KpKey*, i);
-        fprintf(stderr, "Found key %s with code %d\n", key->label, key->code);
 
+#ifdef NDEBUG
+        fprintf(stderr, "Found key %s with code %d\n", key->label, key->code);
+#endif
         // TODO add these to a GHashTable to find them later.
         GtkWidget *button = gtk_toggle_button_new_with_label(key->label);
         gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_HALF);
-        gtk_widget_set_size_request(button, 80, 50);
-        gtk_grid_attach(GTK_GRID(grid), button, current_x, current_y, 1, 1);
+        gtk_widget_set_size_request(button, 85, 50);
+        if (g_strcmp0(key->label, "space") == 0) {
+            if (n++ > 0) {
+                gtk_grid_attach(GTK_GRID(grid), button, 0, current_y, 10, 1);
+            }
+        } else {
+            gtk_grid_attach(GTK_GRID(grid), button, current_x, current_y, 1, 1);
+        }
 
         g_hash_table_insert(key_button_table, &key->code, button);
 
@@ -110,13 +121,13 @@ main(gint argc, gchar **argv) {
         current_x++;
         if (g_strcmp0(key->label, "0") == 0
             || g_strcmp0(key->label, "p") == 0
-            || g_strcmp0(key->label, "l") == 0) {
+            || g_strcmp0(key->label, "l") == 0
+            || g_strcmp0(key->label, "m") == 0) {
 #endif
             current_y++;
             current_x = 0;
         }
     }
-
 
     KpPollTaskResult *task_result = g_new0(KpPollTaskResult, 1);
     task_result->keyboard_data = keyboard_data;
@@ -127,7 +138,6 @@ main(gint argc, gchar **argv) {
     g_task_set_task_data(task, task_result, g_free);
     g_task_run_in_thread(task, kp_keyboard_poll_task);
     g_object_unref(task);
-
 
     // Trigger initial screen change
     on_screen_changed(window, NULL, &app_state);
@@ -200,7 +210,9 @@ on_leave(GtkWidget *window, GdkEventCrossing *event, gpointer app_state_p) {
         return TRUE;
     }
 
+#ifdef NDEBUG
     fprintf(stderr, "Leaving window at %0.0f, %0.0f - window size is %d, %d\n", event->x, event->y, window_width, window_height);
+#endif
 
     gtk_window_set_decorated(GTK_WINDOW(window), FALSE);
     APP_STATE(app_state_p)->is_transparent = TRUE;
